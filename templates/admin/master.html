@@ -1,0 +1,3 @@
+{% extends 'admin/base.html' %}
+{% block head_css %}{{ super() }}<link rel="stylesheet" href="{{ url_for('static', filename='css/database-admin.css') }}">{% endblock %}
+{% block page_body %}<div class="admin-brand-bar"><a href="{{ url_for('admin_dashboard') }}"><img src="{{ url_for('static', filename='images/logo-main.png') }}" alt="VINLookupNow"></a></div><div class="workspace-return"><a href="{{ url_for('admin_dashboard') }}">← Sales & orders dashboard</a></div>{{ super() }}{% endblock %}
