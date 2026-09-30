@@ -1,0 +1,57 @@
+VinLookUpNow - Live payment and access security update
+
+INSTALL
+Stop the running website/worker. Back up your existing project first.
+Copy this car_inspection folder's contents into your existing car_inspection.
+KEEP your existing .env, database.db, instance directory and generated_reports.
+This ZIP deliberately contains no customer database, credentials or generated reports.
+Do not replace your .env with .env.example.
+
+In your activated virtual environment:
+python -m pip install -r requirements.txt
+python set_admin_password.py
+
+The admin username defaults to admin. The old hardcoded password no longer works.
+The new password hash is stored in instance/admin-password.hash. Keep this file.
+Existing sessions may be invalidated by the stronger session secret; log in again.
+
+Open your EXISTING environment file:
+notepad .env
+
+Set these values, retaining your SMTP, GoodCar and other existing settings:
+PAYPAL_MODE=live
+PAYPAL_CLIENT_ID=YOUR_LIVE_CLIENT_ID
+PAYPAL_CLIENT_SECRET=YOUR_LIVE_CLIENT_SECRET
+FLASK_DEBUG=0
+SITE_HTTPS=false
+
+Use Live credentials from the same PayPal REST application, not sandbox credentials.
+For your deployed HTTPS website set SITE_HTTPS=true. Keep false on local HTTP.
+Never share .env or the instance directory publicly.
+Restart the website and workers after saving; already-running processes keep old settings.
+
+Verify your credentials without a purchase:
+python -m flask --app app check-paypal
+
+Then start locally:
+python app.py
+
+For public hosting use a production WSGI server with debug disabled and HTTPS.
+The generated instance/session-secret.txt must persist across deployments/workers.
+
+WHAT CHANGED
+PayPal mode is validated in one helper and defaults to live.
+Explicit sandbox mode remains available for testing. Sandbox text/API URLs in that
+conditional branch do NOT mean the active checkout is sandbox.
+Receipts require database-backed checkout session ownership, not just an order ID.
+Old fixed-key admin/test routes are removed. Admin POST forms require CSRF tokens.
+Admin passwords are hashed; session secrets are random when no strong key is supplied.
+Private responses are not cached. Direct app.py startup disables debug in live mode.
+
+VALIDATION AND LIMITS
+48 automated tests passed, including checkout verification, report worker and access checks.
+Actual Flask startup and home/pricing/EUR checkout/login route smoke tests passed.
+No real Live payment, browser PayPal approval, GoodCar request or email delivery was
+performed in this environment. This is not a guarantee that every issue is eliminated.
+After your credential check, verify one real order's amount/currency, admin details,
+report and email. In another browser, its receipt URL must not expose the order.

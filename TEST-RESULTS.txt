@@ -1,0 +1,6 @@
+Automatic reports update — 2026-09-29
+43 offline unittest executions passed (includes inherited checkout cases).
+Queue tests: invalid VIN, persistent admin alert, SMTP alert retry, bounded login retry, human verification hold, interrupted customer send, legacy error migration, verified mocked PDF delivery once.
+Checkout tests: capture verification, amount/currency mismatch rejection, session ownership, duplicate capture, invalid VIN queued after successful payment.
+Dashboard Jinja syntax parsed. Python compilation passed.
+External GoodCar login/download, actual PDF redesign of a GoodCar report, real PayPal payment and Gmail delivery were NOT end-to-end tested in this environment.

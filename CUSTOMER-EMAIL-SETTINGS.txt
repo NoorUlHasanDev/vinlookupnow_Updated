@@ -1,0 +1,18 @@
+Update these values in your EXISTING .env (keep PayPal settings unchanged):
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=vinlookupnow@gmail.com
+SMTP_PASSWORD=PUT_YOUR_GMAIL_APP_PASSWORD_HERE
+
+Use the actual Gmail App Password locally; the text above is only a placeholder.
+Customer From: VinLookupNow <vinlookupnow@gmail.com>
+Customer Reply-To: vinlookupnow@gmail.com
+Customer To: email entered at checkout.
+Subject: Your Vehicle History Report - Thank You for Ordering
+Basic/Premium/Promotional use their respective confirmation text.
+The old CUSTOMER_* settings are ignored by customer confirmations.
+Restart the app after editing .env.
+Retry pending notifications: python -m flask --app app retry-order-emails
+Schedule once per minute with one worker if automatic retries are needed.
+No real email delivery has been tested without your App Password.

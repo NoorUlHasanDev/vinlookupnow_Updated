@@ -1,0 +1,6 @@
+Copy car_inspection files into the existing project, preserving .env and database.db. Stop the previous app/worker and restart the website.
+Historical Title headings now support both numbered and unnumbered variants. Record-count validation remains enabled.
+Existing jobs stopped specifically by Title Records count errors automatically requeue once after this update, including order 40014 if still held/retrying. Do not pay again.
+The supplied Nissan Rogue PDF converted successfully; both title records, dates and odometer readings were checked. Ford Focus warranty regression check passed too.
+Browser launch preserves the requested headless=True setting.
+Converted Nissan PDF included in verified_sample. Actual email delivery is not tested here.

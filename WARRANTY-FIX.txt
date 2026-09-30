@@ -1,0 +1,5 @@
+Warranty continuation fix
+Copy car_inspection contents over your existing folder. Keep your own .env and database.db. Restart python app.py and open the site.
+Existing jobs held specifically for Warranties record-count errors will automatically requeue once. No new payment is required. Other errors are not reset.
+The supplied 2014 Ford Focus PDF now converts successfully with all 5 warranty records. Source pages 34 and 35 were split across a page boundary. The record-count validation remains enabled.
+Sample converted PDF included under verified_sample. Real Gmail delivery still requires valid SMTP configuration.

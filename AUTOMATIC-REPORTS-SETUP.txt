@@ -1,0 +1,65 @@
+AUTOMATIC REPORTS UPDATE
+
+1. Back up your existing car_inspection folder and database first.
+2. Copy this ZIP's car_inspection contents into your existing folder, replacing code files.
+   Keep your own .env, database.db, instance folder and generated_reports folder.
+   They are intentionally not included in this ZIP.
+3. Keep existing PayPal sandbox credentials. Add/confirm these settings in .env:
+
+AUTO_REPORT_WORKER=true
+ADMIN_ALERT_EMAIL=matthewhayes512513@gmail.com
+GOODCAR_EMAIL=YOUR_ACTUAL_ACCOUNT_EMAIL
+GOODCAR_PASSWORD=YOUR_ACTUAL_ACCOUNT_PASSWORD
+GOODCAR_HEADLESS=true
+GOODCAR_TIMEOUT_MS=60000
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=vinlookupnow@gmail.com
+SMTP_PASSWORD=YOUR_GMAIL_APP_PASSWORD
+
+Use actual credentials locally, not the example placeholders.
+Keep your existing SECRET_KEY and PAYPAL_MODE=sandbox during testing.
+
+4. If dependencies were already installed, start the site normally with python app.py.
+   Otherwise one-time setup in your activated virtual environment:
+   python -m pip install -r requirements.txt
+   python -m playwright install chromium
+5. Open the website. The automatic worker starts on the first page request.
+   Leave the app running and the computer awake. Paid sandbox orders are queued
+   automatically; no process-report-orders command or per-order SQL is needed.
+
+FLOW
+Payment verified by server -> queue -> GoodCar -> verified source PDF -> existing
+PDF Studio redesign -> verified VIN -> customer email -> Delivered.
+The customer email used is the email entered on checkout.
+Filename example: VinLookUpNow-2017-Audi-Q7.pdf.
+
+INVALID VIN / ERRORS
+A non-empty invalid VIN can be ordered. The worker detects invalid VIN after payment,
+keeps the order paid/awaiting, and records an admin alert plus an email to Matthew.
+The dashboard shows alerts across all months. Refresh it to see updated statuses.
+Login/network/PDF errors are separate from invalid VIN. Operational failures retry
+up to three attempts (60 seconds then 5 minutes); after that they need admin review.
+Human verification or invalid credentials need review immediately.
+Admin alert emails retry automatically when SMTP fails.
+An uncertain customer email send is held for review to avoid sending duplicates.
+Existing legacy jobs with state 'error' are requeued once by this update.
+No report is sent when PDF VIN verification fails.
+
+TIMING AND VERIFICATION
+Worker checks every 10 seconds, then GoodCar and PDF/email processing take additional
+time. Two-minute delivery is not guaranteed. No live account test was possible here.
+Offline queue tests cover retries, invalid VIN, alerts, interrupted delivery, and a
+mocked successful report flow. GoodCar login/download and Gmail delivery still need
+one real sandbox order test using your locally configured credentials.
+A CAPTCHA, changed GoodCar page, account restriction, or wrong password can stop
+fully automatic delivery and will require admin attention.
+
+HOSTING
+Local testing needs only the website process left running.
+On hosting with sleeping/recycled web processes, run a supervised persistent worker:
+python -m flask --app app report-worker
+Set AUTO_REPORT_WORKER=false for web processes when using this dedicated worker.
+Configure hosting's service/process manager to start/restart that command automatically.
+Use the same environment, database path and persistent generated_reports directory.
+Actual hosting service setup is not included because server access was not supplied.

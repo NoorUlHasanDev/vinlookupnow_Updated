@@ -1,0 +1,33 @@
+GOODCAR AUTOMATION SETUP
+
+1. Install dependencies in the project's virtual environment:
+   pip install -r requirements.txt
+   python -m playwright install chromium
+
+2. In your local .env file add your own account values (never send a password in chat):
+   GOODCAR_EMAIL=your_goodcar_login_email
+   GOODCAR_PASSWORD=your_goodcar_password
+   GOODCAR_HEADLESS=true
+   GOODCAR_TIMEOUT_MS=30000
+   SMTP_USER=vinlookupnow@gmail.com
+   SMTP_PASSWORD=your_gmail_app_password
+   ADMIN_ALERT_EMAIL=matthewhayes512513@gmail.com
+
+3. Schedule this command once per minute in the same project directory:
+   flask --app app process-report-orders
+
+   On Windows use Task Scheduler with the venv's flask.exe, Start in set to
+   the car_inspection folder, and the arguments --app app process-report-orders.
+   On Linux use your hosting provider's scheduled task or cron.
+
+4. Paid orders are queued when PayPal confirms capture. The scheduled command
+   signs in, searches the VIN, checks the report's VIN, downloads the PDF,
+   redesigns it, checks the VIN again, and emails the final PDF. Invalid VIN
+   sends an alert to ADMIN_ALERT_EMAIL. Errors stop delivery and appear in
+   the fulfillment_jobs database table (state/error). A state of 'review'
+   means email transmission was uncertain; inspect before retrying.
+
+5. Test with an existing GoodCar report and a disposable paid order in a
+   separate test database before switching on the scheduled command for live
+   orders. GoodCar may change its page controls, report credits, or login
+   challenges. No live end-to-end payment/email test was run in this workspace.

@@ -1,0 +1,36 @@
+# Local credentials and environments
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+env/
+
+# Runtime secrets, customer databases, reports and backups
+instance/
+generated_reports/
+uploads/
+upload/
+backups/
+backup/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.pdf
+*.xlsx
+*.csv
+*.zip
+*.log
+
+# Python/editor caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

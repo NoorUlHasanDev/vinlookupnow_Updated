@@ -1,0 +1,65 @@
+Country detection / pricing / checkout update
+
+INSTALL
+Merge all supplied files into your existing car_inspection folder. In particular,
+replace templates/base.html, templates/checkout.html, templates/pricing.html,
+static/js/currency-localization.js, static/js/card-billing.js, app.py and add
+static/js/geo-location.js. Preserve your .env, database.db, instance directory
+and generated_reports. Stop/restart the app and refresh with Ctrl+F5.
+No new environment values or credentials are required for this change.
+
+WHAT WAS WRONG
+Previously the browser used only ipapi.co. Its blocked/invalid/quota response, or
+failure of a subsequent currency-map request, silently reset all prices to USD.
+PayPal loaded before country detection finished. The new form's default country
+therefore did not fix the existing PayPal-hosted flag selector.
+
+WHAT CHANGED
+Detection now starts in the page head, with country.is and ipapi.co as a backup.
+Both calls have timeouts; error JSON is rejected. Country is not cached across
+reloads, so changing a VPN then reloading triggers detection again.
+The currency mapping is embedded by Flask. Price updates no longer need a second
+currency API request. Pricing has no manual country/currency selector or country
+status label. Currency is selected automatically. Unknown location uses USD and
+is not falsely recorded as Pakistan; diagnostics remain available in the console.
+Pakistan remains $35.99 by default. GB uses GBP; Canada CAD; Ireland EUR; AU AUD;
+NZ NZD. Values stay 35.99 / 59.99 / 49.99 without exchange-rate conversion.
+Checkout links carry both country and currency. A direct checkout link with no
+currency uses the detected market. An explicitly supplied currency is preserved.
+PayPal now waits for country detection. Supported core markets pass regional locale
+parameters, e.g. en_GB for UK, en_CA for Canada. Only sandbox uses buyer-country.
+The eligible advanced card form uses the same billing-country default.
+
+LIMITS
+IP services/VPN databases can fail, be blocked, or locate an IP incorrectly.
+USD is the fallback when location is unavailable. Neither arbitrary EUR links nor mobile
+device emulation change the visitor's public IP. EUR represents multiple countries.
+The locale parameter is a supported presentation hint, not a guaranteed override
+of the country flag in PayPal's standard hosted guest-card form. That form remains
+controlled by PayPal. Advanced CardFields eligibility is still account-dependent.
+The environment's outbound requests to both GeoIP providers timed out, so the
+user's actual VPN connection and real PayPal card transaction were not verified.
+
+CHECK
+Turn on the UK VPN, open /pricing, then Ctrl+F5. Basic should show £35.99 GBP
+if detection succeeds. For Canada, Basic should show $35.99 CAD.
+There is no manual pricing country selector. Detection failures use USD.
+For integration-only testing (not proof of IP detection):
+/checkout?package=basic&currency=GBP&country=GB
+In sandbox the SDK receives buyer-country=GB; in live it receives locale=en_GB.
+To diagnose without exposing credentials, inspect these browser-console values:
+window.VinLocationState
+window.VinMarketState
+window.VinCheckoutState
+
+TESTS
+51 Python tests passed. Node tests covered UK/Canada/EUR/Pakistan pricing, HTTP429
+and invalid JSON-data fallback, total GeoIP failure, checkout links,
+live/sandbox SDK configuration and billing defaults.
+Real Flask-rendered checkout JavaScript was executed with a stubbed PayPal SDK:
+verified detection-before-load, direct GBP redirect and explicit EUR preservation.
+No live payment or real merchant eligibility check was performed.
+
+Official references:
+https://github.com/lineofflight/country
+https://developer.paypal.com/sdk/js/v5/configuration

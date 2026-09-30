@@ -1,0 +1,46 @@
+International card billing update
+
+Merge this project's files into your existing car_inspection. Preserve your .env,
+database.db, instance directory and generated_reports. Restart the website.
+
+The checkout now requests PayPal CardFields along with PayPal/Pay Later buttons.
+If your merchant account and transaction are eligible, the separate card form has
+an explicit billing country selector. Nothing defaults the billing country to US.
+Successful IP country detection now preselects that country in this new selector:
+Canada IP -> Canada, UK IP -> United Kingdom, Australia IP -> Australia, etc.
+It reuses the existing currency location lookup, without another IP request.
+The customer can override it. Late location results never overwrite a choice or
+clear entered billing details. If detection fails, the country stays unselected.
+US, Canada and Australia suggest their own states/provinces. Other countries use
+a region text field; UK/Ireland use an optional county, without forcing US states.
+Country changes clear previous region/postcode values. This country selection is
+the CARD BILLING country, independent of the purchase currency or VIN data source.
+The selected billingAddress goes directly to the secure PayPal CardFields SDK.
+Card number, expiry and CVV are in PayPal-hosted fields, not sent to our Flask API.
+Card orders request SCA_WHEN_REQUIRED. Server-owned price/currency and receipt
+ownership checks continue to apply to both PayPal and card captures.
+
+IMPORTANT ACCOUNT REQUIREMENT
+Your PayPal merchant account must be eligible/enabled for Advanced Credit and
+Debit Card Payments / Expanded Checkout. Code cannot enable this account feature.
+If CardFields is not eligible, existing PayPal guest checkout is retained, with
+an instruction to choose the card's billing country inside PayPal's form.
+In that fallback, PayPal controls the country/state UI. The new country selector
+does NOT change PayPal's existing hosted guest form. If that form offers no country
+selection, enable Advanced Card Payments with PayPal to use the new card form.
+The flag-country selector visible in the supplied screenshot belongs to that
+PayPal-hosted form; its automatic default cannot be guaranteed by this update.
+The latest update also waits for location before loading PayPal and supplies
+regional SDK locale hints. See COUNTRY-CURRENCY-FIX.txt for the current flow.
+
+VERIFICATION
+51 Python tests passed, including card order SCA payload, unchanged server amount,
+capture verification and private order access. Node tests check country-specific
+regions and countryCode/address mapping. Rendered checkout JavaScript syntax checked.
+No real card transaction or merchant eligibility check was possible here.
+Before public use, test the eligible card flow with sandbox credentials for Canada,
+UK, Australia and a euro billing country, then verify Live eligibility separately.
+
+PayPal official instructions:
+https://developer.paypal.com/v5/expanded/integrate
+https://developer.paypal.com/v5/expanded/3d-secure/integrate/card-fields/
