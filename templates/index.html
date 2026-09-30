@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site-updates.css') }}">
+
+<!-- Hero Section with Slider -->
+<section class="hero">
+    <div class="hero-slider">
+        <div class="slide active"><img src="{{ url_for('static', filename='images/hero1.jpg') }}" alt="Black sports car with both doors open" fetchpriority="high"></div>
+    </div>
+    <div class="hero-content">
+        <h1>Discover the World of Vin LookUp Now</h1>
+        <p>Learn the story of your future or current vehicle with our comprehensive VIN reports</p>
+        <div class="hero-actions"><a href="{{ url_for('pricing') }}" class="btn-primary">Get Report Now</a><a href="{{ url_for('sample_report') }}" class="btn-preview">View Report <span aria-hidden="true">↗</span></a></div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+    <div class="container">
+        <h2>Why Choose Us?</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <i class="fas fa-certificate"></i>
+                <h3>Expertise & Professional</h3>
+                <p>Our certified professionals bring extensive experience and meticulous attention to detail.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-tools"></i>
+                <h3>Cutting-Edge Technology</h3>
+                <p>We use advanced diagnostic tools to provide accurate, detailed vehicle reports.</p>
+            </div>
+            <div class="feature-card">
+                <i class="fas fa-headset"></i>
+                <h3>24/7 Ready Support</h3>
+                <p>Count on our 24/7 ready support for reliable assistance whenever you need it.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Services Section -->
+<section class="services">
+    <div class="container">
+        <h2>Our Services</h2>
+        <div class="services-grid">
+            <!-- Car Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/car-icon.png') }}" alt="Car Report" class="service-img">
+                </div>
+                <h3>Car History Report</h3>
+                <p>Uncover your Car's past with our comprehensive Car's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+
+            <!-- Motorcycle Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/motorcycle-icon.png') }}" alt="Motorcycle Report" class="service-img">
+                </div>
+                <h3>MotorCycle History Report</h3>
+                <p>Uncover your MotorCycle's past with our comprehensive MotorCycle's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+
+            <!-- Truck Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/truck-icon.png') }}" alt="Truck Report" class="service-img">
+                </div>
+                <h3>Truck History Report</h3>
+                <p>Uncover your Track's past with our comprehensive Truck's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+
+            <!-- RV Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/rv-icon.png') }}" alt="RV Report" class="service-img">
+                </div>
+                <h3>RV History Report</h3>
+                <p>Uncover your RV's past with our comprehensive RV's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+
+            <!-- ATV Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/atv-icon.png') }}" alt="ATV Report" class="service-img">
+                </div>
+                <h3>ATV History Report</h3>
+                <p>Uncover your ATV's past with our comprehensive ATV's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+
+            <!-- Boat Report -->
+            <div class="service-card">
+                <div class="service-icon">
+                    <img src="{{ url_for('static', filename='images/boat-icon.png') }}" alt="Boat Report" class="service-img">
+                </div>
+                <h3>Boat History Report</h3>
+                <p>Uncover your Boat's past with our comprehensive Boat's history reports</p>
+                <a href="{{ url_for('pricing') }}">GET REPORT NOW →</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section -->
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat">
+                <h3 data-target="40000">40,000+</h3>
+                <p>Complete Reports</p>
+            </div>
+            <div class="stat">
+                <h3 data-target="37000">37,000+</h3>
+                <p>Happy Customers</p>
+            </div>
+            <div class="stat">
+                <h3 data-target="99">99%</h3>
+                <p>Accuracy Rate</p>
+            </div>
+            <div class="stat">
+                <h3 data-target="24">24/7</h3>
+                <p>Support Available</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials Section with Multiple Reviews -->
+<section class="testimonials">
+    <div class="container">
+        <h2>What They Say About Us?</h2>
+        
+        <div class="testimonials-slider">
+            <!-- Review 1 -->
+            <div class="testimonial-card active">
+                <p>"VinLookUpNow helped me avoid a bad deal! The report was detailed and accurate. Highly recommended for anyone buying a used car in the US!"</p>
+                <div class="testimonial-author">
+                    <h4>John Smith</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 2 -->
+            <div class="testimonial-card">
+                <p>"Honestly, I didn’t trust online reports before, but this service proved me wrong. Quick, simple, and trustworthy. Great job!"</p>
+                <div class="testimonial-author">
+                    <h4>Sarah Johnson</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 3 -->
+            <div class="testimonial-card">
+                <p>"I was about to buy a car in Texas, but the report showed it had been in two accidents. Saved me thousands of dollars!"</p>
+                <div class="testimonial-author">
+                    <h4>Mike Wilson</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 4 -->
+            <div class="testimonial-card">
+                <p>"Fast, affordable, and super reliable. Got my vehicle history report within minutes. Definitely the best service I’ve used so far!"</p>
+                <div class="testimonial-author">
+                    <h4>Emily Davis</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 5 -->
+            <div class="testimonial-card">
+                <p>"Honestly, I didn’t trust online reports before, but this service proved me wrong. Quick, simple, and trustworthy. Great job!"</p>
+                <div class="testimonial-author">
+                    <h4>David Brown</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 6 -->
+            <div class="testimonial-card">
+                <p>"Customer support was amazing! They guided me through the process and I got a detailed report within 5 minutes. Worth every penny."/p>
+                <div class="testimonial-author">
+                    <h4>Lisa Miller</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 7 -->
+            <div class="testimonial-card">
+                <p>"If you’re buying a used car in the USA, don’t make a move without checking VinLookUpNow first. Saved me from buying a flood-damaged vehicle!"</p>
+                <div class="testimonial-author">
+                    <h4>Robert Taylor</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 8 -->
+            <div class="testimonial-card">
+                <p>"Buying a car in Ontario was stressful, but VinLookUpNow made it so much easier. The report gave me all the details I needed."</p>
+                <div class="testimonial-author">
+                    <h4>Jennifer Wilson</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 9 -->
+            <div class="testimonial-card">
+                <p>"Very accurate and professional service! I used it before purchasing a used SUV in Toronto, and it gave me full peace of mind."</p>
+                <div class="testimonial-author">
+                    <h4>Michael Chen</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 10 -->
+            <div class="testimonial-card">
+                <p>"Got my report in less than 1HOUR minutes! It showed recalls, lien information, and accident history. Perfect for Canadian buyers!"</p>
+                <div class="testimonial-author">
+                    <h4>Amanda Rodriguez</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 11 -->
+            <div class="testimonial-card">
+                <p>"The most comprehensive vehicle history report I've ever seen. It included information I didn't even know to ask for."</p>
+                <div class="testimonial-author">
+                    <h4>James Anderson</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 12 -->
+            <div class="testimonial-card">
+                <p>"I compared multiple services, but VinLookUpNow was the most affordable and detailed. Highly recommend it for anyone in Canada!"</p>
+                <div class="testimonial-author">
+                    <h4>Maria Garcia</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 13 -->
+            <div class="testimonial-card">
+                <p>"This report saved me from buying a car with outstanding finance in Vancouver. Absolutely worth the price!"</p>
+                <div class="testimonial-author">
+                    <h4>Thomas Martinez</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 14 -->
+            <div class="testimonial-card">
+                <p>"I purchased two reports for different cars, and both were extremely accurate. Best vehicle report service in Canada, hands down!"</p>
+                <div class="testimonial-author">
+                    <h4>Susan Thompson</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+
+            <!-- Review 15 -->
+            <div class="testimonial-card">
+                <p>"Very satisfied! The report was clear, easy to read, and had all the information I needed to make a confident decision"</p>
+                <div class="testimonial-author">
+                    <h4>Christopher Lee</h4>
+                    <p>Verified Customer</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="testimonial-dots"></div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta">
+    <div class="container">
+        <h2>Ready to Check Your Vehicle?</h2>
+        <p>Get your comprehensive vehicle history report today</p>
+        <a href="{{ url_for('pricing') }}" class="btn-primary">Get Started</a>
+    </div>
+</section>
+{% endblock %}

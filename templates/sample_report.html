@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}2017 Audi Q7 | Sample Report - VinLookUpNow{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/site-updates.css', v='audi-photo-2') }}">
+<section class="sample-wrap">
+<div class="sample-heading"><div><span class="eyebrow">Explore a sample</span><h1>A closer look. Before you buy.</h1><p>Preview the first page of our 2017 Audi Q7 vehicle history report.</p></div><a class="btn-preview" href="{{ url_for('pricing') }}">Full Report ↗</a></div>
+<div class="sample-grid"><div class="report-paper"><div class="paper-caption"><span>Sample report · Page 1</span><a href="{{ url_for('static', filename='images/audi-q7-report-preview.png') }}" target="_blank" rel="noopener">Enlarge ↗</a></div><img src="{{ url_for('static', filename='images/audi-q7-report-preview.png') }}" alt="First page of the 2017 Audi Q7 sample report: VIN WA1LAAF74HD004202, 55,211 miles, 5 title records and 5 ownership records." width="980" height="1268"></div>
+<aside class="inspection"><span class="eyebrow">Vehicle inspection preview</span><h2>2017 Audi Q7</h2><p>Explore the story behind the vehicle.</p>
+<div class="scan-stage" aria-label="Audi Q7 image with an animated inspection scanning beam">
+<img class="inspection-car-image" src="{{ url_for('static', filename='images/audi-q7-inspection.png') }}" alt="Silver Audi Q7 with a cyan inspection scan effect" width="1536" height="1024"><div class="scanner" aria-hidden="true"></div></div>
+<div class="scan-label">INSPECTION VISUALIZATION</div><button class="scan-toggle" type="button" aria-pressed="false">Pause animation</button>
+<div class="scan-facts"><div><small>Recorded mileage</small><strong>55,211 mi</strong></div><div><small>Model year</small><strong>2017</strong></div><div><small>Title records</small><strong>5 records</strong></div><div><small>Ownership history</small><strong>5 records</strong></div></div>
+<a class="btn-primary" href="{{ url_for('pricing') }}">Full Report →</a><p class="demo-note">This is a sample report and illustrative animation, not a live vehicle inspection. Choose a plan to order a report for your own VIN.</p></aside></div></section>
+<script>document.querySelector('.scan-toggle').addEventListener('click',function(){const paused=document.querySelector('.inspection').classList.toggle('paused');this.setAttribute('aria-pressed',String(paused));this.textContent=paused?'Resume animation':'Pause animation';});</script>
+{% endblock %}

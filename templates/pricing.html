@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="pricing-hero">
+    <div class="container">
+        <h1>Pricing Plans</h1>
+        <p>Choose the plan that fits your needs</p>
+    </div>
+</section>
+
+<section class="pricing-plans">
+    <div class="container">
+        <div class="plans-grid">
+            <div class="plan-card">
+                <h3>Basic Plan</h3>
+                <div class="price" data-usd-price="35.99">$35.99</div>
+                <div class="delivery">12-24 Hours Delivery Duration</div>
+                <div class="service-note">(24 Hours Service Available)</div>
+                <ul class="features-list">
+                    <li><i class="fas fa-check"></i> Ownership Costs</li>
+                    <li><i class="fas fa-check"></i> Accident Information</li>
+                    <li><i class="fas fa-check"></i> Market Value Range</li>
+                    <li><i class="fas fa-check"></i> Owner's History</li>
+                    <li><i class="fas fa-check"></i> Theft Record</li>
+                    <li><i class="fas fa-check"></i> Vehicle Specifications</li>
+                    <li><i class="fas fa-check"></i> Safety Recall Status</li>
+                    <li><i class="fas fa-check"></i> Online History</li>
+                    <li><i class="fas fa-check"></i> Warranties</li>
+                    <li><i class="fas fa-times"></i> Salvage Information</li>
+                    <li><i class="fas fa-times"></i> Title Brand</li>
+                    <li><i class="fas fa-times"></i> Installed Equipment</li>
+
+                </ul>
+                <a href="{{ url_for('checkout', package='basic') }}" class="btn-primary">Choose Plan</a>
+            </div>
+
+            <div class="plan-card featured">
+                <div class="popular-badge">Most Popular</div>
+                <h3>Premium Plan</h3>
+                <div class="price" data-usd-price="59.99">$59.99</div>
+                <div class="delivery">01 Hours Delivery Duration</div>
+                <div class="service-note">(Service Available From 8:00 am CST – 8:00 pm CST)</div>
+                <ul class="features-list">
+                    <li><i class="fas fa-check"></i> Ownership Costs</li>
+                    <li><i class="fas fa-check"></i> Accident Information</li>
+                    <li><i class="fas fa-check"></i> Market Value Range</li>
+                    <li><i class="fas fa-check"></i> Owner's History</li>
+                    <li><i class="fas fa-check"></i> Theft Record</li>
+                    <li><i class="fas fa-check"></i> Vehicle Specifications</li>
+                    <li><i class="fas fa-check"></i> Safety Recall Status</li>
+                    <li><i class="fas fa-check"></i> Online History</li>
+                    <li><i class="fas fa-check"></i> Warranties</li>
+                    <li><i class="fas fa-check"></i> Salvage Information</li>
+                    <li><i class="fas fa-check"></i> Title Brand</li>
+                    <li><i class="fas fa-check"></i> Installed Equipment</li>
+                </ul>
+                <a href="{{ url_for('checkout', package='premium') }}" class="btn-primary">Choose Plan</a>
+            </div>
+
+            <div class="plan-card">
+                <h3>Promotional Plan</h3>
+                <div class="price" data-usd-price="49.99">$49.99</div>
+                <div class="delivery">06-12 Hours Delivery Duration</div>
+                <div class="service-note">(24 Hours Service Available)</div>
+                <ul class="features-list">
+                    <li><i class="fas fa-check"></i> Ownership Costs</li>
+                    <li><i class="fas fa-check"></i> Accident Information</li>
+                    <li><i class="fas fa-check"></i> Market Value Range</li>
+                    <li><i class="fas fa-check"></i> Owner's History</li>
+                    <li><i class="fas fa-check"></i> Theft Record</li>
+                    <li><i class="fas fa-check"></i> Vehicle Specifications</li>
+                    <li><i class="fas fa-check"></i> Safety Recall Status</li>
+                    <li><i class="fas fa-check"></i> Online History</li>
+                    <li><i class="fas fa-check"></i> Warranties</li>
+                    <li><i class="fas fa-check"></i> Salvage Information</li>
+                    <li><i class="fas fa-times"></i> Title Brand</li>
+                    <li><i class="fas fa-times"></i> Installed Equipment</li>
+                </ul>
+                <a href="{{ url_for('checkout', package='promotional') }}" class="btn-primary">Choose Plan</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ Section - Simple Version -->
+<section class="simple-faq">
+    <div class="container">
+        <h2>Frequently Asked Questions</h2>
+        
+        <div class="faq-list">
+            <!-- FAQ Item 1 -->
+            <div class="faq-item">
+                <h3 class="faq-question">What Types Of Inspection Reports Do You Offer?</h3>
+                <div class="faq-answer">
+                    <p>We provide comprehensive inspection reports that include vehicle history, accident records, title status, and more. Our reports help you make informed decisions before purchasing a vehicle.</p>
+                </div>
+            </div>
+
+            <!-- FAQ Item 2 -->
+            <div class="faq-item">
+                <h3 class="faq-question">How Will I Receive My Inspection Report?</h3>
+                <div class="faq-answer">
+                    <p>Once your report is ready, we will email it to the address you provided during checkout. Reports are typically delivered within the timeframe specified for your chosen plan.</p>
+                </div>
+            </div>
+
+            <!-- FAQ Item 3 -->
+            <div class="faq-item">
+                <h3 class="faq-question">What Types Of Vehicles Can Be Inspected?</h3>
+                <div class="faq-answer">
+                    <p>We provide reports for cars, motorcycles, trucks, RVs, ATVs, and boats. If you have a specific vehicle type not listed, please contact our support team.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}

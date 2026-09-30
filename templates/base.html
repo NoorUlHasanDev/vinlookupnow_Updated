@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>window.VinMarketConfig = {{ market_config|default({})|tojson }};</script>
+    <script src="{{ url_for('static', filename='js/geo-location.js', v='1') }}"></script>
+    <title>{% block title %}VIN Lookup Now - Vehicle History & VIN Decoder{% endblock %}</title>
+    
+     <meta name="description" content="{% block description %}Check Vehicle Details With VIN LookUp Now. Get Accurate VIN Decoding, Car History Report, and trusted data for buying or selling a car{% endblock %}">
+
+    <!-- New favicon (forces browser to use favicon2.png) -->
+<link rel="icon" href="{{ url_for('static', filename='images/favicon.png', v='3') }}" type="image/x-icon">
+<link rel="icon" type="image/png" sizes="164x36" href="{{ url_for('static', filename='images/favicon.png', v='3') }}">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/brand-fix.css', v='2') }}">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="navbar">
+    <div class="nav-container">
+        <div class="nav-logo">
+            <a href="{{ url_for('index') }}">
+                <span class="site-logo-frame"><img src="{{ url_for('static', filename='images/logo-main.png') }}" alt="VinLookUpNow Logo" class="site-logo"></span>
+            </a>
+        </div>
+
+        <!-- Mobile Menu Toggle Button -->
+        <button class="menu-toggle" id="mobileMenuToggle">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <div class="nav-menu" id="mainNavMenu">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('pricing') }}">Pricing</a>
+            <a href="{{ url_for('about') }}">About</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            <!-- Mobile-only CTA Button -->
+            
+        </div>
+
+        <div class="nav-cta">
+            <a href="{{ url_for('pricing') }}" class="btn-primary">Get Report</a>
+        </div>
+    </div>
+</nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>Vin LookUp Now</h3>
+                <p>Providing comprehensive vehicle history reports to help you make informed decisions.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Services</h4>
+                <ul>
+                    <li><a href="#">Car Reports</a></li>
+                    <li><a href="#">Motorcycle Reports</a></li>
+                    <li><a href="#">Truck Reports</a></li>
+                    <li><a href="#">RV Reports</a></li>
+                                        <li><a href="#">ATV Reports</a></li>
+                    <li><a href="#">Boat Reports</a></li>
+
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Contact Us</h4>
+                <p><i class="fas fa-phone"></i> (601)904-1074</p>
+                <p><i class="fas fa-envelope"></i> vinlookupnow@gmail.com</p>
+                <p><i class="fas fa-map-marker-alt"></i> 477 Madison Ave New York, NY 10022, United States
+</p>
+            </div>
+            <div class="footer-section">
+                <h4>Work Hours</h4>
+                <p>Available 24/7</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2023 Vin LookUp Now. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/country-state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/currency-localization.js', v='8') }}"></script>
+
+<script>
+    // Mobile menu functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const menuToggle = document.getElementById('mobileMenuToggle');
+        const navMenu = document.getElementById('mainNavMenu');
+        
+        if (menuToggle && navMenu) {
+            menuToggle.addEventListener('click', function() {
+                navMenu.classList.toggle('active');
+                
+                // Toggle menu icon
+                const icon = menuToggle.querySelector('i');
+                if (navMenu.classList.contains('active')) {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
+                } else {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+            
+            // Close menu when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!event.target.closest('.nav-container') && 
+                    navMenu.classList.contains('active')) {
+                    navMenu.classList.remove('active');
+                    const icon = menuToggle.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+            
+            // Close menu when clicking on links
+            navMenu.addEventListener('click', function(event) {
+                if (event.target.tagName === 'A') {
+                    navMenu.classList.remove('active');
+                    const icon = menuToggle.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
+        }
+    });
+</script>
+
+<script>
+    // FAQ Toggle Function - Simple
+    function toggleFAQ(element) {
+        // Toggle active class on the parent faq-item
+        const faqItem = element.parentElement;
+        faqItem.classList.toggle('active');
+    }
+</script>
+
+<!--Start of Tawk.to Script-->
+<script type="text/javascript">
+var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
+(function(){
+var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
+s1.async=true;
+s1.src='https://embed.tawk.to/68eea0a27690531950dd1ff5/1j7i26uo1';
+s1.charset='UTF-8';
+s1.setAttribute('crossorigin','*');
+s0.parentNode.insertBefore(s1,s0);
+})();
+</script>
+<!--End of Tawk.to Script-->
+
+</body>
+</html>

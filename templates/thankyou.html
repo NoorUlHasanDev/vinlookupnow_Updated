@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="thankyou">
+    <div class="container">
+        <div class="thankyou-card">
+            <div class="thankyou-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <h1>Thank You for Your Order!</h1>
+            <p>Your payment was successful and your vehicle history report is being processed, we'll email you the report ASAP.</p>
+            
+            {% if order %}
+            <div class="order-details">
+                <h3>Order Details</h3>
+                <div class="detail-row">
+                    <span class="label">Order ID:</span>
+                    <span class="value">#{{ order.id }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">VIN:</span>
+                    <span class="value">{{ order.vin }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Package:</span>
+                    <span class="value">{{ order.package|title }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Amount Paid:</span>
+                    <span class="value">{{ order.amount|money_display(order.currency or "USD") }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Status:</span>
+                    <span class="value">{{ order.status|title }}</span>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="action-buttons">
+                <a href="{{ url_for('index') }}" class="btn-primary">
+                    <i class="fas fa-home"></i> Back to Home
+                </a>
+                {% if order and order.status == 'completed' %}
+                <a href="/download-report/{{ order.id }}" class="btn-secondary">
+                    <i class="fas fa-download"></i> Download Report
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="checkout">
+    <div class="container">
+        <h1>Complete Your Order</h1>
+        
+        <div class="checkout-grid">
+            <div class="checkout-form">
+                <h2>Customer Information</h2>
+                <form id="customerForm">
+                    <div class="form-group">
+                        <label for="vin">VIN Number *</label>
+                        <input type="text" id="vin" name="vin" required maxlength="64"
+                               title="17-character Vehicle Identification Number" placeholder="Enter 17-digit VIN">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email Address *</label>
+                        <input type="email" id="email" name="email" required placeholder="your@email.com">
+                    </div>
+
+                    <h2>Billing Details</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="first_name">First Name *</label>
+                            <input type="text" id="first_name" name="first_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name *</label>
+                            <input type="text" id="last_name" name="last_name" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">Phone Number</label>
+                        <input type="tel" id="phone" name="phone" required placeholder="(123) 456-7890">
+                    </div>
+
+                    <input type="hidden" name="package" id="package" value="{{ package }}">
+                    
+                    <!-- Payment Section -->
+                    <div class="payment-section">
+                        <h2>Payment Method</h2>
+                        <p class="payment-note">Complete all fields above to enable payment</p>
+                        
+                        <div id="paypal-button-container" class="payment-button-container disabled">
+                            <div id="paypal-option"></div>
+                            <div id="paylater-option"></div>
+                            <div id="card-option"></div>
+                        </div>
+                        <p id="funding-note" class="payment-note" hidden></p>
+                        <section id="international-card" hidden>
+                            <h3>Pay by debit or credit card</h3>
+                            <div id="card-billing-fields">
+                                <label for="billing-country">Billing country *</label>
+                                <select id="billing-country" autocomplete="billing country" required form="cardBillingForm"></select>
+                                <label for="billing-address">Billing address *</label>
+                                <input id="billing-address" autocomplete="billing address-line1" required maxlength="300" form="cardBillingForm">
+                                <label for="billing-city">City / town *</label>
+                                <input id="billing-city" autocomplete="billing address-level2" required maxlength="120" form="cardBillingForm">
+                                <label id="billing-region-label" for="billing-region">State / province / region</label>
+                                <input id="billing-region" list="billing-regions" autocomplete="billing address-level1" maxlength="120" form="cardBillingForm">
+                                <datalist id="billing-regions"></datalist>
+                                <label id="billing-postal-label" for="billing-postal">Postal code</label>
+                                <input id="billing-postal" autocomplete="billing postal-code" maxlength="60" form="cardBillingForm">
+                            </div>
+                            <label>Cardholder name</label><div class="secure-card-field" id="card-name-field"></div>
+                            <label>Card number</label><div class="secure-card-field" id="card-number-field"></div>
+                            <div class="form-row">
+                                <div><label>Expiry date</label><div class="secure-card-field" id="card-expiry-field"></div></div>
+                                <div><label>Security code</label><div class="secure-card-field" id="card-cvv-field"></div></div>
+                            </div>
+                            <button type="button" id="card-pay-button" class="btn btn-primary">Pay by card</button>
+                        </section>
+                    </div>
+                </form>
+            </div>
+
+            <div class="order-summary">
+                <h2>Your Order</h2>
+                <div class="summary-card">
+                    <div class="summary-item">
+                        <h4>{{ package|title }} Plan</h4>
+                        <p>{{ amount|money_display(currency) }}</p>
+                    </div>
+                    <div class="summary-total">
+                        <h4>Total</h4>
+                        <p>{{ amount|money_display(currency) }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<form id="cardBillingForm"></form>
+
+<!-- Hidden div to store amount for JavaScript -->
+<div id="orderAmount" data-amount="{{ amount }}" data-currency="{{ currency }}" style="display: none;"></div>
+
+<p id="payment-status" role="status" aria-live="polite"></p>
+{% if paypal_mode == 'sandbox' %}<p class="payment-note">Sandbox test checkout — no real payment.</p>{% endif %}
+<script src="{{ url_for('static', filename='js/card-billing.js', v='3') }}"></script>
+<script>
+(async function initializeCheckout() {
+const form = document.getElementById('customerForm');
+const statusMessage = document.getElementById('payment-status');
+const container = document.getElementById('paypal-button-container');
+const fundingNote = document.getElementById('funding-note');
+function isFormReady() { return form.checkValidity(); }
+function updatePaymentLock() { container.classList.toggle('disabled', !isFormReady()); }
+form.querySelectorAll('input').forEach(input => { input.addEventListener('input', updatePaymentLock); input.addEventListener('change', updatePaymentLock); });
+updatePaymentLock();
+form.addEventListener('submit', event => event.preventDefault());
+document.getElementById('cardBillingForm').addEventListener('submit', event => event.preventDefault());
+document.getElementById('vin').addEventListener('input', event => event.target.value = event.target.value.toUpperCase());
+async function paymentRequest(url, body) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 40000);
+  let response;
+  try {
+    response = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:controller.signal});
+  } catch (error) {
+    throw new Error(error.name === 'AbortError' ? 'Payment server timed out. Please check your order before trying again.' : 'Payment server cannot be reached. Please check your connection.');
+  } finally { clearTimeout(timeout); }
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || 'Payment could not be completed.');
+  return data;
+}
+const checkoutUrl = new URL(location.href);
+const explicitCountry = window.VinGeo.normalizeCountry(checkoutUrl.searchParams.get('country'));
+statusMessage.textContent = 'Loading payment options…';
+const detected = explicitCountry ? {country:explicitCountry,source:'selected'} : await window.VinGeoReady;
+const country = detected && detected.country || '';
+window.VinBillingCountry = country;
+// A direct checkout link without a currency should use the detected market too.
+const market = window.VinGeo.market(country,window.VinMarketConfig || {});
+if (!checkoutUrl.searchParams.has('currency') && market.currency !== {{ currency|tojson }}) {
+  checkoutUrl.searchParams.set('currency',market.currency);
+  if (country) checkoutUrl.searchParams.set('country',country);
+  location.replace(checkoutUrl.toString());
+  return;
+}
+const clientId = {{ paypal_client_id|tojson }};
+const mode = {{ paypal_mode|tojson }};
+const sdkUrl = window.VinGeo.sdkUrl(clientId,{{ currency|tojson }},mode,country);
+window.VinCheckoutState = {country,currency:{{ currency|tojson }},mode,cardFieldsEligible:false};
+if (clientId && !window.paypal) {
+  try {
+    await new Promise((resolve,reject) => {
+      const sdk = document.createElement('script');
+      const timer = setTimeout(() => { sdk.remove(); reject(new Error('PayPal load timeout')); },15000);
+      sdk.src = sdkUrl;
+      sdk.onload = () => { clearTimeout(timer); resolve(); };
+      sdk.onerror = () => { clearTimeout(timer); sdk.remove(); reject(new Error('PayPal load failed')); };
+      document.head.appendChild(sdk);
+    });
+    statusMessage.textContent = '';
+  } catch (error) {
+    statusMessage.textContent = 'PayPal could not load. Check your connection and refresh this page.';
+  }
+}
+if (!window.paypal) {
+  statusMessage.textContent = statusMessage.textContent || 'PayPal could not load for this currency. Refresh the page or check the Client ID for the configured mode.';
+} else {
+  const callbacks = {
+    async createOrder() {
+      if (!form.reportValidity()) throw new Error('Complete customer information first.');
+      const fields = Object.fromEntries(new FormData(form));
+      fields.currency = {{ currency|tojson }};
+      const data = await paymentRequest('/api/paypal/orders', fields);
+      return data.id;
+    },
+    async onApprove(data) {
+      statusMessage.textContent = 'Confirming payment. Please keep this page open…';
+      try {
+        const result = await paymentRequest('/api/paypal/capture', {id:data.orderID});
+        window.location.href = '/thankyou?order_id=' + encodeURIComponent(result.order_id);
+      } catch (error) {
+        statusMessage.textContent = error.message + ' Do not pay again until you check your order.';
+        throw error;
+      }
+    },
+    onError(error) { statusMessage.textContent = error && error.message ? error.message : 'Payment could not be completed.'; }
+  };
+  let cardFields;
+  let hasCardFields = false;
+  try {
+    if (paypal.CardFields) {
+      cardFields = paypal.CardFields({
+        ...callbacks,
+        async createOrder() {
+          if (!form.reportValidity() || !document.getElementById('cardBillingForm').reportValidity()) throw new Error('Complete customer and billing information.');
+          const fields = Object.fromEntries(new FormData(form));
+          fields.currency = {{ currency|tojson }};
+          fields.payment_method = 'card';
+          return (await paymentRequest('/api/paypal/orders', fields)).id;
+        },
+        style: {input: {'font-size':'16px', color:'#172033'}, '.invalid':{color:'#b91c1c'}}
+      });
+      hasCardFields = cardFields.isEligible();
+      window.VinCheckoutState.cardFieldsEligible = hasCardFields;
+      if (hasCardFields) {
+        awaitCardFields();
+      }
+    }
+  } catch (error) { hasCardFields = false; }
+  async function awaitCardFields() {
+    try {
+      document.getElementById('international-card').hidden = false;
+      window.VinCardBilling.init(document);
+      await Promise.all([
+        cardFields.NameField().render('#card-name-field'),
+        cardFields.NumberField().render('#card-number-field'),
+        cardFields.ExpiryField().render('#card-expiry-field'),
+        cardFields.CVVField().render('#card-cvv-field')
+      ]);
+      const pay = document.getElementById('card-pay-button');
+      pay.addEventListener('click', async () => {
+        if (!form.reportValidity() || !document.getElementById('cardBillingForm').reportValidity()) return;
+        pay.disabled = true;
+        statusMessage.textContent = 'Processing card payment…';
+        try { await cardFields.submit({billingAddress: window.VinCardBilling.address(document)}); }
+        catch (error) { callbacks.onError(error); }
+        finally { pay.disabled = false; }
+      });
+    } catch (error) {
+      document.getElementById('international-card').hidden = true;
+      statusMessage.textContent = 'Card fields could not load. Please refresh or use PayPal.';
+    }
+  }
+  if (!hasCardFields) {
+    fundingNote.hidden = false;
+    fundingNote.textContent = 'For card payment, select your card’s billing country in the PayPal form before entering your address.';
+  }
+  const button = paypal.Buttons({
+    ...(hasCardFields ? {fundingSource: paypal.FUNDING.PAYPAL} : {}),
+    style: { layout:'vertical', height:48, shape:'rect', label:'paypal' },
+    onClick(data, actions) {
+      if (form.reportValidity()) return actions.resolve();
+      updatePaymentLock();
+      return actions.reject();
+    },
+    async createOrder() {
+      statusMessage.textContent = 'Connecting to PayPal…';
+      const fields = Object.fromEntries(new FormData(form));
+      fields.currency = {{ currency|tojson }};
+      const data = await paymentRequest('/api/paypal/orders', fields);
+      statusMessage.textContent = 'PayPal checkout is opening. Please keep this page open.';
+      return data.id;
+    },
+    async onApprove(data) {
+      statusMessage.textContent = 'Confirming payment. Please keep this page open…';
+      try {
+        const result = await paymentRequest('/api/paypal/capture', {id:data.orderID});
+        window.location.href = '/thankyou?order_id=' + encodeURIComponent(result.order_id);
+      } catch (error) {
+        statusMessage.textContent = error.message + ' Do not pay again until you check your order.';
+      }
+    },
+    onCancel() { statusMessage.textContent = 'Payment cancelled. You can try again.'; },
+    onError(error) { statusMessage.textContent = error && error.message ? error.message : 'PayPal checkout failed. Check your PayPal account.'; }
+  });
+  if (button.isEligible()) {
+    button.render('#paypal-option').catch(error => {
+      statusMessage.textContent = 'PayPal payment buttons could not be displayed for this currency. Refresh and try again.';
+      console.error('PayPal render error', error);
+    });
+    if (hasCardFields) {
+      const payLater = paypal.Buttons({...callbacks, fundingSource: paypal.FUNDING.PAYLATER,
+        style:{layout:'vertical',height:48},
+        onClick(data, actions) { return form.reportValidity() ? actions.resolve() : actions.reject(); }});
+      if (payLater.isEligible()) payLater.render('#paylater-option').catch(() => {});
+    }
+  } else {
+    statusMessage.textContent = 'PayPal is not eligible for this account and currency.';
+  }
+}
+})().catch(error => {
+  document.getElementById('payment-status').textContent = 'Payment options could not load. Refresh this page or contact support.';
+  console.error('Checkout initialization failed',error);
+});
+</script>
+
+<style>
+    #international-card { margin-top:24px; border-top:1px solid #64748b; padding-top:20px; }
+    #international-card[hidden] { display:none; }
+    #international-card input, #international-card select { box-sizing:border-box; width:100%; min-width:0; padding:12px; margin:6px 0 14px; font-size:16px; border:1px solid #94a3b8; border-radius:6px; background:white; color:#172033; }
+    .secure-card-field { height:48px; background:white; border:1px solid #94a3b8; border-radius:6px; margin:6px 0 14px; overflow:hidden; }
+    #international-card .form-row > div { flex:1; min-width:0; }
+    #card-pay-button { width:100%; min-height:48px; margin-top:12px; }
+    .payment-section {
+        margin-top: 2rem;
+        padding-top: 2rem;
+        border-top: 1px solid #eee;
+    }
+    
+    .payment-note {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    
+    .payment-button-container {
+        margin-top: 1rem;
+        position: relative;
+    }
+    
+    #paypal-button-container {
+        min-height: 50px;
+        position: relative;
+    }
+    
+    #paypal-button-container.disabled { opacity: 0.55; pointer-events: none; }
+    #paypal-button-container.disabled::after { content: '🔒 Complete all information to unlock payment'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.93); color:#334155; font-weight:700; font-size:.9rem; border-radius:10px; pointer-events:auto; }
+    #paypal-button-container > div:not(:empty) + div:not(:empty) { margin-top: 12px; }
+    
+    .paypal-button-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+        border-radius: 4px;
+        color: #666;
+    }
+    
+    .paypal-button-overlay i {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: #0070ba;
+    }
+    
+    .paypal-button-overlay span {
+        font-size: 0.9rem;
+        text-align: center;
+    }
+    
+    #paypal-button-container:not(.disabled) .paypal-button-overlay {
+        display: none;
+    }
+    
+    .processing-message {
+        text-align: center;
+        padding: 2rem;
+        color: #0070ba;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}

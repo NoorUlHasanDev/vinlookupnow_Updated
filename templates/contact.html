@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Enhanced Contact Section -->
+<section class="contact-section">
+    <div class="container">
+        <!-- Animated Header -->
+        <div class="contact-header" data-aos="fade-up">
+            <h1>Contact <span class="text-gradient">Vin LookUp Now</span></h1>
+            <p>We're here to help you make informed vehicle decisions</p>
+        </div>
+
+        <div class="contact-grid">
+            <!-- Contact Information -->
+            <div class="contact-info" data-aos="fade-right">
+                <div class="info-header">
+                    <h2>Get In Touch</h2>
+                    <p>Our team is ready to assist you with any questions</p>
+                </div>
+
+                <!-- Contact Cards -->
+                <div class="contact-cards">
+                    <div class="contact-card" data-aos="zoom-in">
+                        <div class="card-icon">
+                            <i class="fas fa-phone"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Phone Support</h3>
+                            <p>(601)904-1074</p>
+                            <span class="card-note">Available 24/7</span>
+                        </div>
+                    </div>
+
+                    <div class="contact-card" data-aos="zoom-in" data-aos-delay="100">
+                        <div class="card-icon">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Email Us</h3>
+                            <p>vinlookupnow@gmail.com</p>
+                            <span class="card-note">Response within 1 hour</span>
+                        </div>
+                    </div>
+
+                    <div class="contact-card" data-aos="zoom-in" data-aos-delay="200">
+                        <div class="card-icon">
+                            <i class="fas fa-map-marker-alt"></i>
+                        </div>
+                        <div class="card-content">
+                            <h3>Visit Us</h3>
+                            <p>477 Madison Ave</p>
+                            <p>New York, NY 10022</p>
+                            <span class="card-note">United States</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Hours -->
+                <div class="business-hours" data-aos="fade-up">
+                    <h3>Business Hours</h3>
+                    <div class="hours-grid"><div class="hour-item"><span>Every day</span><span>Available 24/7</span></div></div>
+                </div>
+
+                <!-- Emergency Support -->
+                <div class="emergency-support" data-aos="fade-up">
+                    <div class="emergency-icon">
+                        <i class="fas fa-life-ring"></i>
+                    </div>
+                    <div class="emergency-content">
+                        <h4>24/7 Emergency Support</h4>
+                        <p>Urgent vehicle history reports for critical decisions</p>
+                        <span class="emergency-number">+1 601-904-1074</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Form -->
+            <div class="contact-form-container" data-aos="fade-left">
+                <div class="form-header">
+                    <h2>Send us a Message</h2>
+                    <p>We'll get back to you within 30 minutes</p>
+                </div>
+
+                <form action="{{ url_for('contact') }}" method="POST" class="contact-form">
+                    <div class="form-grid">
+                        <div class="form-group" data-aos="fade-up">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required placeholder="Enter your full name">
+                            <i class="fas fa-user"></i>
+                        </div>
+
+                        <div class="form-group" data-aos="fade-up" data-aos-delay="100">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required placeholder="your@email.com">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+
+                        <div class="form-group" data-aos="fade-up" data-aos-delay="200">
+                            <label for="phone">Phone Number</label>
+                            <input type="tel" id="phone" name="phone" placeholder="(123) 456-7890">
+                            <i class="fas fa-phone"></i>
+                        </div>
+
+                        <div class="form-group" data-aos="fade-up" data-aos-delay="300">
+                            <label for="subject">Subject *</label>
+                            <select id="subject" name="subject" required>
+                                <option value="">Select a subject</option>
+                                <option value="general">General Inquiry</option>
+                                <option value="report">Report Issue</option>
+                                <option value="business">Business Partnership</option>
+                                <option value="support">Technical Support</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <i class="fas fa-tag"></i>
+                        </div>
+
+                        <div class="form-group full-width" data-aos="fade-up" data-aos-delay="400">
+                            <label for="message">Message *</label>
+                            <textarea id="message" name="message" rows="5" required placeholder="Tell us how we can help you..."></textarea>
+                            <i class="fas fa-comment"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-submit" data-aos="fade-up" data-aos-delay="500">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-paper-plane"></i>
+                            Send Message
+                        </button>
+                        <p class="form-note">
+                            <i class="fas fa-lock"></i>
+                            Your information is secure and encrypted
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="contact-faq" data-aos="fade-up">
+            <div class="faq-header">
+                <h2>Frequently Asked Questions</h2>
+                <p>Quick answers to common questions</p>
+            </div>
+
+            <div class="faq-grid">
+                <div class="faq-item" data-aos="fade-up">
+                    <div class="faq-question">
+                        <h4>How quickly will I receive my vehicle report?</h4>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Reports are typically delivered within 1 hour for premium plans and within 12-24 hours for standard plans. Emergency reports are available within 30 minutes.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="100">
+                    <div class="faq-question">
+                        <h4>What information is included in the report?</h4>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Our comprehensive reports include accident history, ownership records, title information, service history, recall information, and much more.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item" data-aos="fade-up" data-aos-delay="200">
+                    <div class="faq-question">
+                        <h4>Do you offer refunds?</h4>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="faq-answer">
+                        <p>We have a no-refund policy since our customers consistently find our services reliable and satisfactory.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Live Support Section -->
+<section class="live-support" data-aos="fade-up">
+    <div class="container">
+        <div class="support-content">
+            <div class="support-text">
+                <h2>Need Immediate Assistance?</h2>
+                <p>Connect with our live support team right now</p>
+            </div>
+            <div class="support-actions">
+                <a href="tel:+1 601-904-1074" class="btn-primary">
+                    <i class="fas fa-phone"></i>
+                    Call Now
+                </a>
+                <a href="mailto:vinlookupnow@gmail.com" class="btn-secondary">
+                    <i class="fas fa-envelope"></i>
+                    Email Us
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
