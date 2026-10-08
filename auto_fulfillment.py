@@ -1,5 +1,6 @@
 """Durable paid-order queue: GoodCar PDF -> PDF Studio -> customer email."""
 import logging
+import click
 import os
 import re
 import hmac
@@ -9,7 +10,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 import pymupdf as fitz
-from goodcar_worker import fetch_report
+from goodcar_worker import fetch_report, safe_error
 from pdf_engine import convert_pdf
 
 LOG = logging.getLogger(__name__)
@@ -59,25 +60,30 @@ def register_auto_fulfillment(app, connection):
             order_id INTEGER PRIMARY KEY, state TEXT NOT NULL DEFAULT 'queued',
             error TEXT, attempts INTEGER NOT NULL DEFAULT 0, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
         columns = {r[1] for r in db.execute('PRAGMA table_info(fulfillment_jobs)')}
-        for name, declaration in [('next_attempt', 'REAL NOT NULL DEFAULT 0'), ('claimed_at', 'REAL')]:
+        for name, declaration in [('next_attempt', 'REAL NOT NULL DEFAULT 0'), ('claimed_at', 'REAL'), ('delivery_started', 'INTEGER NOT NULL DEFAULT 0')]:
             if name not in columns:
                 db.execute(f'ALTER TABLE fulfillment_jobs ADD COLUMN {name} {declaration}')
+        # Preserve uncertainty across crashes/restarts, including older review jobs.
+        db.execute("UPDATE fulfillment_jobs SET delivery_started=1 WHERE state='sending' OR (state='review' AND error LIKE 'Worker interrupted;%')")
         db.execute("CREATE TABLE IF NOT EXISTS fulfillment_migrations (name TEXT PRIMARY KEY)")
         if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='warranty-continuation-v1'").fetchone():
-            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND error LIKE 'Warranties: source declares%'")
+            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND delivery_started=0 AND error LIKE 'Warranties: source declares%'")
             db.execute("INSERT INTO fulfillment_migrations(name) VALUES('warranty-continuation-v1')")
         if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='unnumbered-title-v1'").fetchone():
-            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND error LIKE 'Title Records: source declares%'")
+            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND delivery_started=0 AND error LIKE 'Title Records: source declares%'")
             db.execute("INSERT INTO fulfillment_migrations(name) VALUES('unnumbered-title-v1')")
         # One-time migration: old failed jobs get bounded retries, never delivered or uncertain sends.
-        db.execute("UPDATE fulfillment_jobs SET state='retry',attempts=0 WHERE state='error'")
+        if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='bounded-error-retry-v2'").fetchone():
+            db.execute("UPDATE fulfillment_jobs SET state=CASE WHEN attempts<3 THEN 'retry' ELSE 'review' END WHERE state='error' AND delivery_started=0")
+            db.execute("INSERT INTO fulfillment_migrations(name) VALUES('bounded-error-retry-v2')")
 
-    def fail(order_id, message):
+    def fail(order_id, message, retryable=True):
+        message = safe_error(message)
         with connection() as db:
             job = db.execute('SELECT * FROM fulfillment_jobs WHERE order_id=?',(order_id,)).fetchone()
-            uncertain = job['state'] == 'sending'
+            uncertain = job['state'] == 'sending' or bool(job['delivery_started'])
             blocked = any(s in message.lower() for s in ('human verification', 'captcha', 'access denied', 'incorrect password', 'invalid credentials'))
-            retry = not uncertain and not blocked and job['attempts'] < 3
+            retry = retryable and not uncertain and not blocked and job['attempts'] < 3
             db.execute("UPDATE fulfillment_jobs SET state=?,error=?,next_attempt=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
                        ('retry' if retry else 'review',message[:500],time.time()+(60 if job['attempts']==1 else 300),order_id))
             if not retry:
@@ -92,11 +98,14 @@ def register_auto_fulfillment(app, connection):
             with connection() as db:
                 db.execute("UPDATE fulfillment_jobs SET state='skipped' WHERE order_id=?",(order_id,))
             return
-        directory = Path(app.root_path)/'generated_reports'/'auto'/str(order_id)
-        directory.mkdir(parents=True,exist_ok=True)
+        reports_root = app.config.get('REPORTS_DIR')
+        if not reports_root:
+            reports_root = Path(os.environ['DATA_DIR'])/'generated_reports' if os.getenv('DATA_DIR') else Path(app.root_path)/'generated_reports'
+        directory = Path(reports_root)/'auto'/str(order_id)
         source = directory/'source.pdf'
         interim = directory/'redesigned.pdf'
         try:
+            directory.mkdir(parents=True,exist_ok=True)
             if not source.is_file():
                 result = fetch_report(row['vin'],source)
                 if result is None:
@@ -107,7 +116,7 @@ def register_auto_fulfillment(app, connection):
                             db.execute("UPDATE fulfillment_jobs SET state='invalid_vin',error=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(result.message,order_id))
                             record_alert(db,order_id,'invalid_vin',result.message)
                     else:
-                        fail(order_id,result.message)
+                        fail(order_id,result.message,retryable=getattr(result,'retryable',True))
                     return
             with fitz.open(source) as pdf:
                 if pdf.page_count < 1:
@@ -124,16 +133,19 @@ def register_auto_fulfillment(app, connection):
             if not final.is_file():
                 logo = Path(app.static_folder)/'images/logo-main.png'
                 convert_pdf(source,interim,'',logo if logo.exists() else None,lambda *_:None)
-                with fitz.open(interim) as pdf:
-                    output_text = '\n'.join(page.get_text() for page in pdf)
-                    if pdf.page_count < 1 or row['vin'] not in output_text[:12000]:
-                        raise ValueError('Redesigned PDF failed VIN verification')
-                    missing_sections = [name for name in ('Mileage', 'Title Records', 'Ownership History') if name.lower() not in output_text.lower()]
-                    if missing_sections:
-                        raise ValueError('Redesigned PDF is incomplete; missing sections: ' + ', '.join(missing_sections))
+            # A cached file must pass the same checks before it can be emailed.
+            candidate = final if final.is_file() else interim
+            with fitz.open(candidate) as pdf:
+                output_text = '\n'.join(page.get_text() for page in pdf)
+                if pdf.page_count < 1 or row['vin'] not in output_text[:12000]:
+                    raise ValueError('Redesigned PDF failed VIN verification')
+                missing_sections = [name for name in ('Mileage', 'Title Records', 'Ownership History') if name.lower() not in output_text.lower()]
+                if missing_sections:
+                    raise ValueError('Redesigned PDF is incomplete; missing sections: ' + ', '.join(missing_sections))
+            if candidate == interim:
                 interim.replace(final)
             with connection() as db:
-                db.execute("UPDATE fulfillment_jobs SET state='sending',updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(order_id,))
+                db.execute("UPDATE fulfillment_jobs SET state='sending',delivery_started=1,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(order_id,))
             _send(row['email'],'Your Vehicle History Report - VinLookupNow',DELIVERY_TEXT,final)
             with connection() as db:
                 db.execute("UPDATE fulfillment_jobs SET state='delivered',error=NULL,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(order_id,))
@@ -141,23 +153,48 @@ def register_auto_fulfillment(app, connection):
             LOG.info('Report delivered for order #%s',order_id)
         except Exception as exc:
             # Do not log credential-bearing SDK traces.
-            fail(order_id,str(exc)[:500])
+            fail(order_id,str(exc)[:500],retryable=not isinstance(exc,ValueError))
 
     def run_once():
         with connection() as db:
             # A crashed job needs review rather than risking a duplicate customer email.
-            stale = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('processing','sending') AND claimed_at<?",(time.time()-1800,)).fetchall()
+            stale = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('processing','sending') AND (claimed_at IS NULL OR claimed_at<?)",(time.time()-1800,)).fetchall()
             for row in stale:
                 db.execute("UPDATE fulfillment_jobs SET state='review',error='Worker interrupted; review before resending' WHERE order_id=?",(row['order_id'],))
                 record_alert(db,row['order_id'],'processing_error','Worker interrupted; review delivery before resending')
-            jobs = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('queued','retry') AND next_attempt<=? ORDER BY order_id LIMIT 3",(time.time(),)).fetchall()
+            jobs = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('queued','retry') AND delivery_started=0 AND attempts<3 AND next_attempt<=? ORDER BY order_id LIMIT 3",(time.time(),)).fetchall()
         for job in jobs:
             with connection() as db:
-                claimed = db.execute("UPDATE fulfillment_jobs SET state='processing',attempts=attempts+1,claimed_at=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND state IN ('queued','retry') AND next_attempt<=?",
+                claimed = db.execute("UPDATE fulfillment_jobs SET state='processing',attempts=attempts+1,claimed_at=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND state IN ('queued','retry') AND delivery_started=0 AND attempts<3 AND next_attempt<=?",
                                      (time.time(),job['order_id'],time.time())).rowcount
             if claimed:
                 process_one(job['order_id'])
         send_alerts(connection,_send)
+
+    def queue_retry(order_id, confirm_not_delivered=False):
+        with connection() as db:
+            job = db.execute('SELECT * FROM fulfillment_jobs WHERE order_id=?', (order_id,)).fetchone()
+            order = db.execute('SELECT status,report_status FROM orders WHERE id=?', (order_id,)).fetchone()
+            if not job or job['state'] not in ('review','invalid_vin','retry','error'):
+                raise ValueError('This job is not ready for manual retry.')
+            if not order or order['status'] not in ('paid','completed') or order['report_status']=='delivered':
+                raise ValueError('Only an existing paid, undelivered order can be retried.')
+            if job['delivery_started'] and not confirm_not_delivered:
+                raise ValueError('Email delivery is uncertain. Verify the customer did not receive it before retrying.')
+            db.execute("UPDATE fulfillment_jobs SET state='queued',error=NULL,attempts=0,next_attempt=0,claimed_at=NULL,delivery_started=0,updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (order_id,))
+
+    @app.cli.command('retry-report-order')
+    @click.argument('order_id', type=int)
+    @click.option('--confirm-not-delivered', is_flag=True,
+                             help='Use only after checking uncertain email delivery did not reach the customer.')
+    def retry_report_order(order_id, confirm_not_delivered):
+        """Queue an existing paid order without creating a new order or payment."""
+        import click
+        try:
+            queue_retry(order_id, confirm_not_delivered)
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from None
+        click.echo(f'Order #{order_id} queued; no new payment was created.')
 
     @app.post('/admin/fulfillment/<int:order_id>/retry')
     def retry_fulfillment(order_id):
@@ -166,11 +203,10 @@ def register_auto_fulfillment(app, connection):
         token = session.get('workflow_csrf', '')
         if not token or not hmac.compare_digest(token, request.form.get('csrf_token', '')):
             abort(403)
-        with connection() as db:
-            job = db.execute('SELECT state FROM fulfillment_jobs WHERE order_id=?', (order_id,)).fetchone()
-            if not job or job['state'] not in ('review','invalid_vin','retry','error'):
-                abort(400, 'This job is not ready for manual retry.')
-            db.execute("UPDATE fulfillment_jobs SET state='queued',error=NULL,attempts=0,next_attempt=0,claimed_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (order_id,))
+        try:
+            queue_retry(order_id, request.form.get('confirm_not_delivered') == '1')
+        except ValueError as exc:
+            abort(400, str(exc))
         flash(f'Order #{order_id} queued for another report attempt.')
         return redirect(url_for('admin_dashboard'))
 
