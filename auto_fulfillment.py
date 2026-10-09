@@ -1,23 +1,15 @@
-"""Durable paid-order queue: GoodCar PDF -> PDF Studio -> customer email."""
-import logging
+"""Automatic report fulfillment is disabled. Manual email helper is unchanged."""
 import click
-import os
-import re
 import hmac
+import os
 import smtplib
 import ssl
 from email.message import EmailMessage
 from pathlib import Path
 
-import pymupdf as fitz
-from goodcar_worker import fetch_report, safe_error
-from pdf_engine import convert_pdf
-
-LOG = logging.getLogger(__name__)
 DELIVERY_TEXT = ("Please find attached your detailed vehicle inspection report for review.\n\n"
                  "If you have any questions or require further clarification, kindly reply to this email, "
                  "and we will be happy to assist you.\n\nThank you for choosing VinLookupNow")
-
 
 def _send(to, subject, body, attachment=None):
     username = os.getenv('SMTP_USER', '').strip()
@@ -38,13 +30,16 @@ def _send(to, subject, body, attachment=None):
         smtp.login(username, password)
         smtp.send_message(mail)
 
-
 def register_auto_fulfillment(app, connection):
-    from flask import request, session, redirect, url_for, abort, flash, jsonify
-    import threading
-    import time
-    from fulfillment_alerts import init_alerts, record_alert, send_alerts
+    """Keep existing app routes/schema compatible without running automation."""
     from contextlib import contextmanager
+    from flask import abort, flash, jsonify, redirect, request, session, url_for
+    from importlib.util import find_spec
+    if find_spec("fulfillment_alerts") is not None:
+        from fulfillment_alerts import init_alerts
+    else:
+        init_alerts = lambda connection: None
+
     raw_connection = connection
     @contextmanager
     def connection():
@@ -54,147 +49,28 @@ def register_auto_fulfillment(app, connection):
                 yield db
         finally:
             db.close()
+
+    # The live app may still read these tables or insert a job on payment.
+    # Existing records, order statuses and report files are never rewritten.
     init_alerts(connection)
     with connection() as db:
-        db.execute('''CREATE TABLE IF NOT EXISTS fulfillment_jobs (
+        db.execute("""CREATE TABLE IF NOT EXISTS fulfillment_jobs (
             order_id INTEGER PRIMARY KEY, state TEXT NOT NULL DEFAULT 'queued',
-            error TEXT, attempts INTEGER NOT NULL DEFAULT 0, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
+            error TEXT, attempts INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
         columns = {r[1] for r in db.execute('PRAGMA table_info(fulfillment_jobs)')}
-        for name, declaration in [('next_attempt', 'REAL NOT NULL DEFAULT 0'), ('claimed_at', 'REAL'), ('delivery_started', 'INTEGER NOT NULL DEFAULT 0')]:
+        for name, declaration in [('next_attempt', 'REAL NOT NULL DEFAULT 0'),
+                                  ('claimed_at', 'REAL'),
+                                  ('delivery_started', 'INTEGER NOT NULL DEFAULT 0')]:
             if name not in columns:
                 db.execute(f'ALTER TABLE fulfillment_jobs ADD COLUMN {name} {declaration}')
-        # Preserve uncertainty across crashes/restarts, including older review jobs.
-        db.execute("UPDATE fulfillment_jobs SET delivery_started=1 WHERE state='sending' OR (state='review' AND error LIKE 'Worker interrupted;%')")
-        db.execute("CREATE TABLE IF NOT EXISTS fulfillment_migrations (name TEXT PRIMARY KEY)")
-        if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='warranty-continuation-v1'").fetchone():
-            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND delivery_started=0 AND error LIKE 'Warranties: source declares%'")
-            db.execute("INSERT INTO fulfillment_migrations(name) VALUES('warranty-continuation-v1')")
-        if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='unnumbered-title-v1'").fetchone():
-            db.execute("UPDATE fulfillment_jobs SET state='queued',attempts=0,error=NULL,next_attempt=0 WHERE state IN ('retry','review','error') AND delivery_started=0 AND error LIKE 'Title Records: source declares%'")
-            db.execute("INSERT INTO fulfillment_migrations(name) VALUES('unnumbered-title-v1')")
-        # One-time migration: old failed jobs get bounded retries, never delivered or uncertain sends.
-        if not db.execute("SELECT 1 FROM fulfillment_migrations WHERE name='bounded-error-retry-v2'").fetchone():
-            db.execute("UPDATE fulfillment_jobs SET state=CASE WHEN attempts<3 THEN 'retry' ELSE 'review' END WHERE state='error' AND delivery_started=0")
-            db.execute("INSERT INTO fulfillment_migrations(name) VALUES('bounded-error-retry-v2')")
 
-    def fail(order_id, message, retryable=True):
-        message = safe_error(message)
-        with connection() as db:
-            job = db.execute('SELECT * FROM fulfillment_jobs WHERE order_id=?',(order_id,)).fetchone()
-            uncertain = job['state'] == 'sending' or bool(job['delivery_started'])
-            blocked = any(s in message.lower() for s in ('human verification', 'captcha', 'access denied', 'incorrect password', 'invalid credentials'))
-            retry = retryable and not uncertain and not blocked and job['attempts'] < 3
-            db.execute("UPDATE fulfillment_jobs SET state=?,error=?,next_attempt=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",
-                       ('retry' if retry else 'review',message[:500],time.time()+(60 if job['attempts']==1 else 300),order_id))
-            if not retry:
-                record_alert(db,order_id,'processing_error',message[:500])
-        LOG.warning('Order #%s: %s',order_id,message)
-
-    def process_one(order_id):
-        with connection() as db:
-            row = db.execute('''SELECT o.id,o.vin,o.status,o.report_status,c.email
-                FROM orders o JOIN customers c ON c.id=o.customer_id WHERE o.id=?''',(order_id,)).fetchone()
-        if not row or row['status'] not in ('paid','completed') or row['report_status']=='delivered':
-            with connection() as db:
-                db.execute("UPDATE fulfillment_jobs SET state='skipped' WHERE order_id=?",(order_id,))
-            return
-        reports_root = app.config.get('REPORTS_DIR')
-        if not reports_root:
-            reports_root = Path(os.environ['DATA_DIR'])/'generated_reports' if os.getenv('DATA_DIR') else Path(app.root_path)/'generated_reports'
-        directory = Path(reports_root)/'auto'/str(order_id)
-        source = directory/'source.pdf'
-        interim = directory/'redesigned.pdf'
-        try:
-            directory.mkdir(parents=True,exist_ok=True)
-            if not source.is_file():
-                result = fetch_report(row['vin'],source)
-                if result is None:
-                    raise RuntimeError('GoodCar adapter returned no result')
-                if not result.valid:
-                    if result.invalid_vin:
-                        with connection() as db:
-                            db.execute("UPDATE fulfillment_jobs SET state='invalid_vin',error=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(result.message,order_id))
-                            record_alert(db,order_id,'invalid_vin',result.message)
-                    else:
-                        fail(order_id,result.message,retryable=getattr(result,'retryable',True))
-                    return
-            with fitz.open(source) as pdf:
-                if pdf.page_count < 1:
-                    raise ValueError('Downloaded PDF has no pages')
-                first = '\n'.join(pdf[i].get_text() for i in range(min(3,pdf.page_count)))
-            if row['vin'] not in first:
-                raise ValueError('Downloaded PDF VIN does not match paid order')
-            vehicle_heading = re.search(r'(?im)^Report\s+on\s+((?:19|20)\d{2}\s+.+?)\s*$', first)
-            if not vehicle_heading:
-                raise ValueError('Vehicle year/make/model cannot be verified in source PDF')
-            vehicle_name = re.sub(r'[^A-Za-z0-9]+', ' ', vehicle_heading.group(1)).strip()
-            filename_name = '-'.join(vehicle_name.split())
-            final = directory/(f'VinLookUpNow-{filename_name}.pdf')
-            if not final.is_file():
-                logo = Path(app.static_folder)/'images/logo-main.png'
-                convert_pdf(source,interim,'',logo if logo.exists() else None,lambda *_:None)
-            # A cached file must pass the same checks before it can be emailed.
-            candidate = final if final.is_file() else interim
-            with fitz.open(candidate) as pdf:
-                output_text = '\n'.join(page.get_text() for page in pdf)
-                if pdf.page_count < 1 or row['vin'] not in output_text[:12000]:
-                    raise ValueError('Redesigned PDF failed VIN verification')
-                missing_sections = [name for name in ('Mileage', 'Title Records', 'Ownership History') if name.lower() not in output_text.lower()]
-                if missing_sections:
-                    raise ValueError('Redesigned PDF is incomplete; missing sections: ' + ', '.join(missing_sections))
-            if candidate == interim:
-                interim.replace(final)
-            with connection() as db:
-                db.execute("UPDATE fulfillment_jobs SET state='sending',delivery_started=1,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(order_id,))
-            _send(row['email'],'Your Vehicle History Report - VinLookupNow',DELIVERY_TEXT,final)
-            with connection() as db:
-                db.execute("UPDATE fulfillment_jobs SET state='delivered',error=NULL,updated_at=CURRENT_TIMESTAMP WHERE order_id=?",(order_id,))
-                db.execute("UPDATE orders SET report_status='delivered',delivered_at=CURRENT_TIMESTAMP WHERE id=?",(order_id,))
-            LOG.info('Report delivered for order #%s',order_id)
-        except Exception as exc:
-            # Do not log credential-bearing SDK traces.
-            fail(order_id,str(exc)[:500],retryable=not isinstance(exc,ValueError))
+    disabled_message = 'Automatic reports are disabled. Deliver this report manually.'
+    app.config['AUTO_REPORTS_ENABLED'] = False
 
     def run_once():
-        with connection() as db:
-            # A crashed job needs review rather than risking a duplicate customer email.
-            stale = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('processing','sending') AND (claimed_at IS NULL OR claimed_at<?)",(time.time()-1800,)).fetchall()
-            for row in stale:
-                db.execute("UPDATE fulfillment_jobs SET state='review',error='Worker interrupted; review before resending' WHERE order_id=?",(row['order_id'],))
-                record_alert(db,row['order_id'],'processing_error','Worker interrupted; review delivery before resending')
-            jobs = db.execute("SELECT order_id FROM fulfillment_jobs WHERE state IN ('queued','retry') AND delivery_started=0 AND attempts<3 AND next_attempt<=? ORDER BY order_id LIMIT 3",(time.time(),)).fetchall()
-        for job in jobs:
-            with connection() as db:
-                claimed = db.execute("UPDATE fulfillment_jobs SET state='processing',attempts=attempts+1,claimed_at=?,updated_at=CURRENT_TIMESTAMP WHERE order_id=? AND state IN ('queued','retry') AND delivery_started=0 AND attempts<3 AND next_attempt<=?",
-                                     (time.time(),job['order_id'],time.time())).rowcount
-            if claimed:
-                process_one(job['order_id'])
-        send_alerts(connection,_send)
-
-    def queue_retry(order_id, confirm_not_delivered=False):
-        with connection() as db:
-            job = db.execute('SELECT * FROM fulfillment_jobs WHERE order_id=?', (order_id,)).fetchone()
-            order = db.execute('SELECT status,report_status FROM orders WHERE id=?', (order_id,)).fetchone()
-            if not job or job['state'] not in ('review','invalid_vin','retry','error'):
-                raise ValueError('This job is not ready for manual retry.')
-            if not order or order['status'] not in ('paid','completed') or order['report_status']=='delivered':
-                raise ValueError('Only an existing paid, undelivered order can be retried.')
-            if job['delivery_started'] and not confirm_not_delivered:
-                raise ValueError('Email delivery is uncertain. Verify the customer did not receive it before retrying.')
-            db.execute("UPDATE fulfillment_jobs SET state='queued',error=NULL,attempts=0,next_attempt=0,claimed_at=NULL,delivery_started=0,updated_at=CURRENT_TIMESTAMP WHERE order_id=?", (order_id,))
-
-    @app.cli.command('retry-report-order')
-    @click.argument('order_id', type=int)
-    @click.option('--confirm-not-delivered', is_flag=True,
-                             help='Use only after checking uncertain email delivery did not reach the customer.')
-    def retry_report_order(order_id, confirm_not_delivered):
-        """Queue an existing paid order without creating a new order or payment."""
-        import click
-        try:
-            queue_retry(order_id, confirm_not_delivered)
-        except ValueError as exc:
-            raise click.ClickException(str(exc)) from None
-        click.echo(f'Order #{order_id} queued; no new payment was created.')
+        # No queue processing, retries, GoodCar browser, conversion or alerts.
+        return None
 
     @app.post('/admin/fulfillment/<int:order_id>/retry')
     def retry_fulfillment(order_id):
@@ -203,52 +79,27 @@ def register_auto_fulfillment(app, connection):
         token = session.get('workflow_csrf', '')
         if not token or not hmac.compare_digest(token, request.form.get('csrf_token', '')):
             abort(403)
-        try:
-            queue_retry(order_id, request.form.get('confirm_not_delivered') == '1')
-        except ValueError as exc:
-            abort(400, str(exc))
-        flash(f'Order #{order_id} queued for another report attempt.')
+        flash(disabled_message)
         return redirect(url_for('admin_dashboard'))
 
     @app.get('/admin/fulfillment/status')
     def fulfillment_status():
         if not session.get('admin_logged_in'):
-            return jsonify({'error':'unauthorized'}), 401
-        with connection() as db:
-            row = db.execute("SELECT COUNT(*) AS count FROM fulfillment_alerts WHERE email_state IN ('pending','sending')").fetchone()
-            latest = db.execute("SELECT MAX(id) AS latest FROM fulfillment_alerts").fetchone()
-        return jsonify({'pending_alerts': row['count'], 'latest_alert': latest['latest'] or 0})
+            return jsonify({'error': 'unauthorized'}), 401
+        return jsonify({'enabled': False, 'pending_alerts': 0, 'latest_alert': 0})
 
     @app.cli.command('process-report-orders')
     def process_report_orders():
-        run_once()
+        click.echo(disabled_message)
 
     @app.cli.command('report-worker')
     def report_worker():
-        """Dedicated long-running worker for hosting with process supervision."""
-        while True:
-            run_once()
-            time.sleep(10)
+        click.echo(disabled_message)
 
-    started = threading.Event()
-    start_lock = threading.Lock()
-    def loop():
-        while True:
-            try:
-                run_once()
-            except Exception:
-                LOG.error('Report worker cycle failed; retrying next cycle')
-            time.sleep(10)
+    @app.cli.command('retry-report-order')
+    @click.argument('order_id', type=int)
+    @click.option('--confirm-not-delivered', is_flag=True)
+    def retry_report_order(order_id, confirm_not_delivered):
+        click.echo(disabled_message)
 
-    @app.before_request
-    def start_background_worker():
-        if os.getenv('AUTO_REPORT_WORKER','true').lower() != 'true' or started.is_set():
-            return
-        with start_lock:
-            if not started.is_set():
-                threading.Thread(target=loop,name='vin-report-worker',daemon=True).start()
-                started.set()
-                LOG.info('Automatic report worker started')
-
-    # Also expose one cycle for isolated integration tests.
     app.extensions['report_worker_once'] = run_once
